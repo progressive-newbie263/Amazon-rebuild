@@ -50,6 +50,10 @@ async function loadPage() {
 
   let ordersHTML = '';
 
+  if (!orders || !Array.isArray(orders)) {
+    orders = []; // Ensure orders is an array
+  }
+
   orders.forEach((order) => {
     const orderTimeString = dayjs(order.orderTime).format('MMMM D');
 
@@ -88,47 +92,51 @@ async function loadPage() {
   });
 
   function productsListHTML(order) {
+    if (!order.products || !Array.isArray(order.products)) {
+      return ''; // Return an empty string if order.products is undefined or not an array
+    }
+  
     let productsListHTML = '';
-
+  
     order.products.forEach((productDetails) => {
       const product = getProduct(productDetails.productId);
-
-      productsListHTML += `
-        <div class="product-image-container">
-          <img src="${product.image}">
-        </div>
-        <div class="product-details">
-          <div class="product-name">
-            ${product.name}
+  
+      if (product) { // Ensure product is defined
+        productsListHTML += `
+          <div class="product-image-container">
+            <img src="${product.image}">
           </div>
-          
-          <div class="product-delivery-date">
-            Arriving on: ${
-              dayjs(productDetails.estimatedDeliveryTime).format('MMMM D')
-            }
-          </div>
-          
-          <div class="product-quantity js-product-quantity" data-product-id="${product.id}">
-            Quantity: ${productDetails.quantity}
-          </div>
-
-          <button class="buy-again-button button-primary js-buy-again-button"
-          data-product-id="${product.id}">
-            <img class="buy-again-icon" src="images/icons/buy-again.png">
-            <span class="buy-again-message">Buy it again</span>
-          </button>
-        </div>
-
-        <div class="product-actions">
-          <a href="tracking.html?orderId=${order.id}&productId=${product.id}">
-            <button class="track-package-button button-secondary">
-              Track package
+          <div class="product-details">
+            <div class="product-name">
+              ${product.name}
+            </div>
+            
+            <div class="product-delivery-date">
+              Arriving on: ${dayjs(productDetails.estimatedDeliveryTime).format('MMMM D')}
+            </div>
+            
+            <div class="product-quantity js-product-quantity" data-product-id="${product.id}">
+              Quantity: ${productDetails.quantity}
+            </div>
+  
+            <button class="buy-again-button button-primary js-buy-again-button"
+            data-product-id="${product.id}">
+              <img class="buy-again-icon" src="images/icons/buy-again.png">
+              <span class="buy-again-message">Buy it again</span>
             </button>
-          </a>
-        </div>
-      `;
+          </div>
+  
+          <div class="product-actions">
+            <a href="tracking.html?orderId=${order.id}&productId=${product.id}">
+              <button class="track-package-button button-secondary">
+                Track package
+              </button>
+            </a>
+          </div>
+        `;
+      }
     });
-
+  
     return productsListHTML;
   }
 
@@ -137,55 +145,50 @@ async function loadPage() {
   function updateCartQuantity() {
     const cartQuantity = calculateCartQuantity();
 
-    document.querySelector('.order-cart-quantity')
-      .innerHTML = cartQuantity;
+    document.querySelector('.order-cart-quantity').innerHTML = cartQuantity;
   }
+  
   updateCartQuantity();
 
-  document.querySelectorAll('.js-buy-again-button')
-    .forEach((button) => {
-      button.addEventListener('click', (order) => {
-        addToCart(button.dataset.productId);
-        
-        const quantityElement = document.querySelector(`.js-product-quantity[data-product-id="${button.dataset.productId}"]`);
+  document.querySelectorAll('.js-buy-again-button').forEach((button) => {
+    button.addEventListener('click', (order) => {
+      addToCart(button.dataset.productId);
+      
+      const quantityElement = document.querySelector(`.js-product-quantity[data-product-id="${button.dataset.productId}"]`);
 
-        // Update the quantity and total cose in the order
-        const product = orders.flatMap(order => order.products).find(product => product.productId == button.dataset.productId);
-        if (product) {
-          //update the quantity.
-          product.quantity++;
-          quantityElement.innerHTML = `Quantity: ${product.quantity}`;
+      // Update the quantity and total cost in the order
+      const product = orders.flatMap(order => order.products).find(product => product.productId == button.dataset.productId);
+      if (product) {
+        // Update the quantity.
+        product.quantity++;
+        quantityElement.innerHTML = `Quantity: ${product.quantity}`;
 
-          // Update the total cost
-          const productDetails = getProduct(button.dataset.productId);
-          const order = orders.find(order => order.products.includes(product));
-          order.totalCostCents += productDetails.priceCents*1.1; //1.1 because 10% tax.
+        // Update the total cost
+        const productDetails = getProduct(button.dataset.productId);
+        const order = orders.find(order => order.products.includes(product));
+        order.totalCostCents += productDetails.priceCents * 1.1; // 1.1 because 10% tax
 
-          // Update the total cost in the DOM
-          const totalElement = document.querySelector(`.js-order-total[data-order-id="${order.id}"]`);
-          totalElement.innerHTML = `$${formatCurrency(order.totalCostCents)}`;
+        // Update the total cost in the DOM
+        const totalElement = document.querySelector(`.js-order-total[data-order-id="${order.id}"]`);
+        totalElement.innerHTML = `$${formatCurrency(order.totalCostCents)}`;
 
-          //saving the order (changing the numbers directly in the order).
-          saveOrders();
-        }
-        
-        //console.log('this worked.');
+        // Save the order (changing the numbers directly in the order).
+        saveOrders();
+      }
 
-        //add this:
-        button.innerHTML = 'Added';
-        setTimeout(() => {
-          button.innerHTML = `
-            <img class="buy-again-icon" src="images/icons/buy-again.png">
-            <span class="buy-again-message">Buy it again</span>
-          `;
-        }, 1000);
+      button.innerHTML = 'Added';
+      setTimeout(() => {
+        button.innerHTML = `
+          <img class="buy-again-icon" src="images/icons/buy-again.png">
+          <span class="buy-again-message">Buy it again</span>
+        `;
+      }, 1000);
 
-        updateCartQuantity();
-      });
+      updateCartQuantity();
     });
+  });
   
   deleteOrder();
 }
-
 
 loadPage();

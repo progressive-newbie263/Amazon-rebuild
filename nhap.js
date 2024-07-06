@@ -1,8 +1,9 @@
 import { addOrder, orders } from "../data/order.js";
-import { getProduct, loadProductsFetch } from '../data/products.js';
+import {getProduct, loadProductsFetch} from '../data/products.js';
 import dayjs from 'https://unpkg.com/dayjs@1.11.10/esm/index.js';
 import formatCurrency from './utils/money.js';
 import { cart, addToCart, calculateCartQuantity } from "../data/cart.js";
+
 
 // Function to save orders to local storage
 function saveOrders() {
@@ -20,29 +21,30 @@ function loadOrders() {
 }
 */
 
-// Function to handle the deletion of an order
-function addDeleteOrderButtonListeners() {
+function deleteOrder() {
   document.querySelectorAll('.js-delete-order-button')
     .forEach((button) => {
       button.addEventListener('click', () => {
         const orderId = button.dataset.orderId;
 
         // Remove the order from the orders array
-        const orderIndex = orders.findIndex(order => order.id === orderId);
-        if (orderIndex !== -1) {
-          orders.splice(orderIndex, 1);
-        }
+        const orderNumber = orders.filter(order => order.id !== orderId);
 
+        if (orderNumber !== -1) {
+          orders.splice(orderNumber, 1);
+        }
         // Save the updated orders to local storage
         saveOrders();
 
-        // Remove the order from the DOM
+        //remove order from DOM model
         button.closest('.order-container').remove();
       });
     });
 }
 
-// Function to load and display the orders on the page
+
+
+//starting of the function loading page:
 async function loadPage() {
   await loadProductsFetch();
 
@@ -67,7 +69,8 @@ async function loadPage() {
             </div>
           </div>
 
-          <button class="delete-order-button js-delete-order-button" data-order-id="${order.id}">
+          <button class="delete-order-button js-delete-order-button"
+          data-order-id="${order.id}">
             Delete
           </button>
 
@@ -85,85 +88,95 @@ async function loadPage() {
   });
 
   function productsListHTML(order) {
+    if (!order.products || !Array.isArray(order.products)) {
+      return ''; // Return an empty string if order.products is undefined or not an array
+    }
+  
     let productsListHTML = '';
-
+  
     order.products.forEach((productDetails) => {
       const product = getProduct(productDetails.productId);
-
-      productsListHTML += `
-        <div class="product-image-container">
-          <img src="${product.image}">
-        </div>
-        <div class="product-details">
-          <div class="product-name">
-            ${product.name}
+  
+      if (product) { // Ensure product is defined
+        productsListHTML += `
+          <div class="product-image-container">
+            <img src="${product.image}">
           </div>
-          
-          <div class="product-delivery-date">
-            Arriving on: ${
-              dayjs(productDetails.estimatedDeliveryTime).format('MMMM D')
-            }
-          </div>
-          
-          <div class="product-quantity js-product-quantity" data-product-id="${product.id}">
-            Quantity: ${productDetails.quantity}
-          </div>
-
-          <button class="buy-again-button button-primary js-buy-again-button" data-product-id="${product.id}">
-            <img class="buy-again-icon" src="images/icons/buy-again.png">
-            <span class="buy-again-message">Buy it again</span>
-          </button>
-        </div>
-
-        <div class="product-actions">
-          <a href="tracking.html?orderId=${order.id}&productId=${product.id}">
-            <button class="track-package-button button-secondary">
-              Track package
+          <div class="product-details">
+            <div class="product-name">
+              ${product.name}
+            </div>
+            
+            <div class="product-delivery-date">
+              Arriving on: ${dayjs(productDetails.estimatedDeliveryTime).format('MMMM D')}
+            </div>
+            
+            <div class="product-quantity js-product-quantity" data-product-id="${product.id}">
+              Quantity: ${productDetails.quantity}
+            </div>
+  
+            <button class="buy-again-button button-primary js-buy-again-button"
+            data-product-id="${product.id}">
+              <img class="buy-again-icon" src="images/icons/buy-again.png">
+              <span class="buy-again-message">Buy it again</span>
             </button>
-          </a>
-        </div>
-      `;
+          </div>
+  
+          <div class="product-actions">
+            <a href="tracking.html?orderId=${order.id}&productId=${product.id}">
+              <button class="track-package-button button-secondary">
+                Track package
+              </button>
+            </a>
+          </div>
+        `;
+      }
     });
-
+  
     return productsListHTML;
   }
+  
 
   document.querySelector('.js-orders-grid').innerHTML = ordersHTML;
 
   function updateCartQuantity() {
     const cartQuantity = calculateCartQuantity();
-    document.querySelector('.order-cart-quantity').innerHTML = cartQuantity;
+
+    document.querySelector('.order-cart-quantity')
+      .innerHTML = cartQuantity;
   }
   updateCartQuantity();
 
   document.querySelectorAll('.js-buy-again-button')
     .forEach((button) => {
-      button.addEventListener('click', () => {
+      button.addEventListener('click', (order) => {
         addToCart(button.dataset.productId);
         
         const quantityElement = document.querySelector(`.js-product-quantity[data-product-id="${button.dataset.productId}"]`);
 
-        // Update the quantity and total cost in the order
+        // Update the quantity and total cose in the order
         const product = orders.flatMap(order => order.products).find(product => product.productId == button.dataset.productId);
         if (product) {
-          // Update the quantity
+          //update the quantity.
           product.quantity++;
           quantityElement.innerHTML = `Quantity: ${product.quantity}`;
 
           // Update the total cost
           const productDetails = getProduct(button.dataset.productId);
           const order = orders.find(order => order.products.includes(product));
-          order.totalCostCents += productDetails.priceCents * 1.1; // 1.1 because of 10% tax.
+          order.totalCostCents += productDetails.priceCents*1.1; //1.1 because 10% tax.
 
           // Update the total cost in the DOM
           const totalElement = document.querySelector(`.js-order-total[data-order-id="${order.id}"]`);
           totalElement.innerHTML = `$${formatCurrency(order.totalCostCents)}`;
 
-          // Save the updated orders to local storage
+          //saving the order (changing the numbers directly in the order).
           saveOrders();
         }
+        
+        //console.log('this worked.');
 
-        // Update the button to show 'Added'
+        //add this:
         button.innerHTML = 'Added';
         setTimeout(() => {
           button.innerHTML = `
@@ -175,8 +188,9 @@ async function loadPage() {
         updateCartQuantity();
       });
     });
-
-  addDeleteOrderButtonListeners();
+  
+  deleteOrder();
 }
+
 
 loadPage();
